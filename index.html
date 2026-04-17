@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PureScript | Universal Dev Validator</title>
+    <!-- Use your logo file here for the tab icon -->
+    <link rel="icon" type="image/png" href="png/katie.png">
+    <style>
+        :root {
+            --bg-deep: #05070a;
+            --bg-card: rgba(22, 27, 34, 0.8);
+            --accent-cyan: #00F5FF;
+            --error-red: #FF3860;
+            --success-green: #39FF14;
+            --text-main: #E6EDF3;
+            --border: rgba(48, 54, 61, 0.8);
+        }
+
+        * { box-sizing: border-box; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Keeps particles contained */
+            position: relative;
+        }
+
+        /* --- PARTICLE CANVAS --- */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* --- LOGO WITH GLOW PULSE --- */
+        @keyframes pulse {
+            0% { filter: drop-shadow(0 0 5px var(--accent-cyan)); }
+            50% { filter: drop-shadow(0 0 20px var(--accent-cyan)); }
+            100% { filter: drop-shadow(0 0 5px var(--accent-cyan)); }
+        }
+
+        .purescript-logo {
+            width: 45px;
+            height: 45px;
+            position: relative;
+            animation: pulse 3s infinite ease-in-out;
+        }
+
+        .purescript-logo::before, .purescript-logo::after {
+            content: '';
+            position: absolute;
+            background: var(--accent-cyan);
+            height: 4px;
+            width: 22px;
+        }
+        .purescript-logo::before { top: 12px; left: 8px; transform: rotate(-45deg); box-shadow: 0 10px 0 var(--accent-cyan); }
+        .purescript-logo::after { top: 12px; right: 8px; transform: rotate(45deg); box-shadow: 0 10px 0 var(--accent-cyan); }
+        .logo-mid {
+            position: absolute;
+            top: 19px; left: 13px;
+            width: 18px; height: 4px;
+            background: var(--accent-cyan);
+            box-shadow: 0 6px 0 var(--accent-cyan);
+        }
+
+        /* --- GLASS-MORPHISM APP CARD --- */
+        .app-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            width: 95%;
+            max-width: 1050px;
+            padding: 40px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 25px 80px rgba(0,0,0,0.8);
+            z-index: 1;
+            position: relative;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 3px; font-weight: 900; }
+
+        select {
+            background: rgba(1, 4, 9, 0.8);
+            color: var(--accent-cyan);
+            border: 1px solid var(--border);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 1.3fr 0.7fr;
+            gap: 25px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 450px;
+            background: rgba(1, 4, 9, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: #C9D1D9;
+            padding: 25px;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            outline: none;
+            resize: none;
+        }
+
+        textarea:focus { border-color: var(--accent-cyan); box-shadow: 0 0 15px rgba(0,245,255,0.2); }
+
+        .report-panel {
+            background: rgba(1, 4, 9, 0.6);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .report-header {
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            font-size: 0.75rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #report-body { padding: 25px; flex-grow: 1; }
+
+        .issue {
+            padding: 12px;
+            margin-bottom: 12px;
+            background: rgba(255, 56, 96, 0.1);
+            border-left: 4px solid var(--error-red);
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        button {
+            margin-top: 25px;
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            background: var(--accent-cyan);
+            color: var(--bg-deep);
+            font-weight: 900;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        button:hover {
+            box-shadow: 0 0 30px rgba(0, 245, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* --- GITHUB BUTTON --- */
+        .github-link {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(22, 27, 34, 0.9);
+            padding: 12px 20px;
+            border-radius: 50px;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        .github-link:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="particleCanvas"></canvas>
+
+<div class="app-card">
+    <div class="header-row">
+        <div style="display:flex; align-items:center; gap:15px;">
+            <div class="purescript-logo"><div class="logo-mid"></div></div>
+            <h1>PURE<span style="color: var(--accent-cyan);">SCRIPT</span></h1>
+        </div>
+        <select id="langSelect">
+            <option value="js">JAVASCRIPT</option>
+            <option value="py">PYTHON</option>
+            <option value="html">HTML5</option>
+            <option value="css">CSS3</option>
+            <option value="json">JSON</option>
+            <option value="lua">LUA</option>
+            <option value="hx">HAXE</option>
+        </select>
+    </div>
+
+    <div class="workspace">
+        <textarea id="codeInput" placeholder="// System ready. Initialize source code..."></textarea>
+        <div class="report-panel">
+            <div class="report-header">
+                <span>CORE_ANALYSIS</span>
+                <span id="statusLabel" style="color: var(--accent-cyan);">STANDBY</span>
+            </div>
+            <div id="report-body">
+                <p style="color: #484f58; font-family: monospace;">> Awaiting data stream...</p>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="purityCheck()">Execute Purity Scan</button>
+</div>
+
+<a href="https://github.com" target="_blank" class="github-link">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+    <span>carterdoesintcode</span>
+</a>
+
+<script>
+    // --- THE PARTICLE ENGINE ---
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Particle {
+        constructor() {
+            this.reset();
+        }
+        reset() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2 + 0.5;
+            this.speedX = (Math.random() - 0.5) * 0.5;
+            this.speedY = (Math.random() - 0.5) * 0.5;
+            this.alpha = Math.random() * 0.5 + 0.2;
+        }
+        update() {
+            this.x += this.speedX;
+            this.y += this.speedY;
+            if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.reset();
+        }
+        draw() {
+            ctx.fillStyle = `rgba(0, 245, 255, ${this.alpha})`;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    for (let i = 0; i < 100; i++) particles.push(new Particle());
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => { p.update(); p.draw(); });
+        requestAnimationFrame(animate);
+    }
+    animate();
+
+    // --- VALIDATION ENGINE ---
+    const rules = {
+        js: (c) => {
+            let logs = [];
+            if (c.includes('var ')) logs.push("❌ System requires 'let' or 'const'.");
+            if (c.includes('== ') && !c.includes('===')) logs.push("❌ Non-strict equality detected.");
+            return logs;
+        },
+        py: (c) => {
+            let logs = [];
+            if (c.includes(';')) logs.push("❌ Syntactic noise: Semicolons are not Pythonic.");
+            return logs;
+        },
+        json: (c) => { try { JSON.parse(c); return []; } catch(e) { return ["❌ erm i dont think this is: " + e.message]; } },
+        html: (c) => { return c.includes('<img') && !c.includes('alt=') ? ["❌ Accessibility missing in <img> tag."] : []; },
+        css: (c) => { return c.includes('!important') ? ["⚠️ Specificity override detected (!important)."] : []; },
+        lua: (c) => { return c.includes('!=') ? ["❌ Lua logic: Use ~= instead."] : []; },
+        hx: (c) => { return !c.includes('package') ? ["⚠️ Package context missing."] : []; }
+    };
+
+    function purityCheck() {
+        const lang = document.getElementById('langSelect').value;
+        const code = document.getElementById('codeInput').value;
+        const report = document.getElementById('report-body');
+        const status = document.getElementById('statusLabel');
+
+        report.innerHTML = "";
+        if (!code.trim()) {
+            status.innerText = "EMPTY";
+            status.style.color = "var(--error-red)";
+            return;
+        }
+
+        const issues = rules[lang](code);
+        if (issues.length > 0) {
+            status.innerText = "IMPURE";
+            status.style.color = "var(--error-red)";
+            issues.forEach(msg => {
+                let div = document.createElement('div');
+                div.className = 'issue';
+                div.innerText = msg;
+                report.appendChild(div);
+            });
+        } else {
+            status.innerText = "STABLE";
+            status.style.color = "var(--success-green)";
+            report.innerHTML = "<div style='text-align:center; color:var(--success-green); margin-top:50px;'>niiice you did it</div>";
+        }
+    }
+</script>
+
+</body>
+</html>
